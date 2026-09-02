@@ -7,7 +7,7 @@ import streamlit as st
 # ==========================================
 class DatabaseManager:
     """Handles SQLite database creation and connections."""
-    def __init__(self, db_name="careschedule.db"):
+    def __init__(self, db_name="careschedule_v2.db"):
         self.db_name = db_name
         self.init_db()
 
