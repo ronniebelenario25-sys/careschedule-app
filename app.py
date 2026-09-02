@@ -1,4 +1,4 @@
-2import sqlite3
+import sqlite3
 import datetime
 import streamlit as st
 
