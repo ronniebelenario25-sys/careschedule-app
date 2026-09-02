@@ -130,18 +130,71 @@ class Appointment:
             return cursor.fetchall()
 
 # ==========================================
-# 3. STREAMLIT WEB INTERFACE
+# 3. AUTHENTICATION & LOGIN SYSTEM
 # ==========================================
 st.set_page_config(page_title="CareSchedule - Clinic Manager", page_icon="🏥", layout="wide")
 
-st.title("🏥 CareSchedule: Patient & Appointment System")
-st.caption("Web-Based Patient Registration & Appointment System")
+# Predefined User Accounts (Demonstration Purposes)
+USERS = {
+    "admin": {"password": "admin123", "role": "Admin"},
+    "patient": {"password": "user123", "role": "Patient"}
+}
 
-# Sidebar Navigation
-menu = ["Dashboard", "Patient Registration", "Book Appointment", "Manage Appointments"]
+if "logged_in" not in st.session_state:
+    st.session_state.logged_in = False
+    st.session_state.role = None
+    st.session_state.username = None
+
+def login():
+    st.title("🏥 CareSchedule - System Login")
+    st.write("Please sign in to access the system.")
+    
+    with st.form("login_form"):
+        username = st.text_input("Username").strip()
+        password = st.text_input("Password", type="password").strip()
+        submit = st.form_submit_button("Sign In")
+        
+        if submit:
+            if username in USERS and USERS[username]["password"] == password:
+                st.session_state.logged_in = True
+                st.session_state.role = USERS[username]["role"]
+                st.session_state.username = username
+                st.success("Login successful!")
+                st.rerun()
+            else:
+                st.error("Invalid username or password.")
+
+    st.info("**Demo Accounts:**\n* **Admin:** Username `admin` | Password `admin123`\n* **Patient:** Username `patient` | Password `user123`")
+
+def logout():
+    st.session_state.logged_in = False
+    st.session_state.role = None
+    st.session_state.username = None
+    st.rerun()
+
+# Execute Login Prompt if Not Authenticated
+if not st.session_state.logged_in:
+    login()
+    st.stop()
+
+# ==========================================
+# 4. STREAMLIT WEB INTERFACE & PERMISSIONS
+# ==========================================
+st.sidebar.title(f"Welcome, {st.session_state.username.capitalize()}!")
+st.sidebar.caption(f"Role: **{st.session_state.role}**")
+if st.sidebar.button("Logout"):
+    logout()
+
+# Role-Based Navigation
+if st.session_state.role == "Admin":
+    menu = ["Dashboard", "Patient Registration", "Book Appointment", "Manage Appointments"]
+else:
+    # Patients only have access to registration and booking
+    menu = ["Patient Registration", "Book Appointment"]
+
 choice = st.sidebar.selectbox("Navigation Menu", menu)
 
-# --- MODULE 1: DASHBOARD ---
+# --- MODULE 1: DASHBOARD (Admin Only) ---
 if choice == "Dashboard":
     st.subheader("📊 System Overview")
     
@@ -170,7 +223,7 @@ if choice == "Dashboard":
 
 # --- MODULE 2: PATIENT REGISTRATION ---
 elif choice == "Patient Registration":
-    st.subheader("👤 Register New Patient")
+    st.subheader("👤 Register Patient")
     
     with st.form("patient_form"):
         name = st.text_input("Full Name")
@@ -189,11 +242,12 @@ elif choice == "Patient Registration":
                 new_patient.save_to_db()
                 st.success(f"Patient '{name}' successfully registered!")
 
-    st.markdown("---")
-    st.subheader("Registered Patients Directory")
-    patient_list = Patient.get_all_patients()
-    if patient_list:
-        st.dataframe(patient_list, use_container_width=True)
+    if st.session_state.role == "Admin":
+        st.markdown("---")
+        st.subheader("Registered Patients Directory")
+        patient_list = Patient.get_all_patients()
+        if patient_list:
+            st.dataframe(patient_list, use_container_width=True)
 
 # --- MODULE 3: BOOK APPOINTMENT ---
 elif choice == "Book Appointment":
@@ -202,10 +256,10 @@ elif choice == "Book Appointment":
     patient_list = Patient.get_all_patients()
     
     if not patient_list:
-        st.warning("No patients found. Please register a patient first!")
+        st.warning("No registered patients found. Please register a patient profile first.")
     else:
         patient_options = {f"{p[1]} (ID: {p[0]})": p[0] for p in patient_list}
-        selected_patient = st.selectbox("Select Patient", list(patient_options.keys()))
+        selected_patient = st.selectbox("Select Patient Profile", list(patient_options.keys()))
         patient_id = patient_options[selected_patient]
         
         doctor_name = st.selectbox("Select Doctor", ["Dr. Smith (General Medicine)", "Dr. Santos (Pediatrics)", "Dr. Reyes (Dentistry)"])
@@ -221,7 +275,7 @@ elif choice == "Book Appointment":
             else:
                 st.error(message)
 
-# --- MODULE 4: MANAGE APPOINTMENTS ---
+# --- MODULE 4: MANAGE APPOINTMENTS (Admin Only) ---
 elif choice == "Manage Appointments":
     st.subheader("⚙️ Update Appointment Status")
     
